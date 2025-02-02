@@ -1,21 +1,23 @@
+name: Deploy to ECR
 
-name: Build and Push Images to ECR
-
-on:
+on: 
   push:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
+  
   build:
+    
     name: Build and Push Images
     runs-on: ubuntu-latest
 
     steps:
-    # Step 1: Check out the repository code
-    - name: Check out code
-      uses: actions/checkout@v2
 
-    # Step 2: Authenticate with Amazon ECR
+    # Step 1: Check out code
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    # Step 2: Login to Amazon ECR
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
@@ -25,27 +27,17 @@ jobs:
         AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
         AWS_REGION: us-east-1
 
-    # Step 3: Define environment variables
-    - name: Set environment variables
+    # Step 3: Build, tag, and push images to Amazon ECR
+    - name: Build, tag, and push images to Amazon ECR
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        DB_REPOSITORY: clo835-assignment1-db
+        APP_REPOSITORY: clo835-assignment1-app
+        IMAGE_TAG: latest
       run: |
-        echo "ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}" >> $GITHUB_ENV
-        echo "APP_REPOSITORY=clo835-assignment1-app" >> $GITHUB_ENV
-        echo "DB_REPOSITORY=clo835-assignment1-db" >> $GITHUB_ENV
-        echo "APP_IMAGE_TAG=app-latest" >> $GITHUB_ENV
-        echo "DB_IMAGE_TAG=db-latest" >> $GITHUB_ENV
-
-    # Step 4: Build and Push App Image
-    - name: Build and Push App Docker Image
-      run: |
-        cd Chapter02/kubia  # Update to the correct path for the app project
-        ls -ltra
-        docker build -t $ECR_REGISTRY/$APP_REPOSITORY:$APP_IMAGE_TAG .
-        docker push $ECR_REGISTRY/$APP_REPOSITORY:$APP_IMAGE_TAG
-
-    # Step 5: Build and Push Database Image
-    - name: Build and Push Database Docker Image
-      run: |
-        cd Chapter02/db_project  # Update to the correct path for the database project
-        ls -ltra
-        docker build -t $ECR_REGISTRY/$DB_REPOSITORY:$DB_IMAGE_TAG .
-        docker push $ECR_REGISTRY/$DB_REPOSITORY:$DB_IMAGE_TAG
+        # Build and push MySQL database image
+        docker build -t $ECR_REGISTRY/$DB_REPOSITORY:$IMAGE_TAG -f Dockerfile_mysql .
+        docker push $ECR_REGISTRY/$DB_REPOSITORY:$IMAGE_TAG
+        # Build and push application image
+        docker build -t $ECR_REGISTRY/$APP_REPOSITORY:$IMAGE_TAG -f Dockerfile .
+        docker push $ECR_REGISTRY/$APP_REPOSITORY:$IMAGE_TAG
